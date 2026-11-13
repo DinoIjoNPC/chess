@@ -1,4 +1,12 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Catur 2D hitam putih: lawan komputer, main berdua, atau multiplayer online pakai kode undangan.">
+<meta name="theme-color" content="#0c0c0c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20rx%3D%2222%22%20fill%3D%22%230c0c0c%22%2F%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2234%22%20r%3D%2213%22%20fill%3D%22%23fafafa%22%2F%3E%3Cpath%20d%3D%22M40%2050h20c0%2012%208%2020%2012%2032H28c4-12%2012-20%2012-32Z%22%20fill%3D%22%23fafafa%22%2F%3E%3C%2Fsvg%3E">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
 <title>Catur Hitam Putih</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -196,6 +204,9 @@ button { cursor: pointer; }
 #toast.on { opacity: 1; transform: translate(-50%, 0); }
 @media (max-width: 420px) { .logo { font-size: calc(62px * var(--dsz)); } .ch { width: 44px; height: 56px; font-size: 26px; } }
 </style>
+</head>
+<body>
+
 
 <div id="app" data-skin="classic">
   <div id="defs"></div>
@@ -284,6 +295,7 @@ button { cursor: pointer; }
         <button type="button" id="btnJoin" class="k3d" disabled>Gabung Room</button>
         <p id="joinErr" class="err" role="alert"></p>
         <p class="note">Warna dan siapa jalan duluan diacak saat teman masuk. Papan selalu menghadapmu: bidakmu di bawah, lawan di atas.</p>
+        <p id="p2pNote" class="note" hidden>Koneksi langsung antar pemain. Room aktif selama pembuat room membiarkan halaman ini terbuka.</p>
       </div>
 
       <div id="pLobby" class="pane" hidden>
@@ -355,6 +367,7 @@ button { cursor: pointer; }
   <div id="toast" role="status" aria-live="polite"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 // ===== ENGINE: aturan catur + AI =====
 // papan: Int8Array(64), indeks = baris*8+kolom, baris 0 = rank 8. Putih positif, hitam negatif.
@@ -843,14 +856,28 @@ function pieceSVG(type, color, skin) {
 }
 if (typeof module !== 'undefined') module.exports = { buildDefs, pieceSVG };
 
-// ===== MULTIPLAYER: room kode undangan di atas capability db =====
-// Dokumen: games/<KODE> = {code, host, hostName, guest, guestName, round, whiteIsHost, moves:[int], result, rematchBy, gone}
+// ===== MULTIPLAYER: room kode undangan =====
+// Dua backend dengan antarmuka sama: NetDB (capability db di claude.ai) dan NetP2P (PeerJS, untuk GitHub Pages).
+// Dokumen room: {code, host, hostName, guest, guestName, round, whiteIsHost, moves:[int], result, rematchBy, gone}
 // langkah dikodekan f | t<<6 | pr<<12
-const Net = {
+const NetBase = {
+  p2p: false,
+  genCode() {
+    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = '';
+    const r = crypto.getRandomValues(new Uint8Array(5));
+    for (const x of r) c += A[x % A.length];
+    return c;
+  },
+  norm(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); },
+  enc(m) { return m.f | (m.t << 6) | ((m.pr || 0) << 12); },
+  dec(n) { return { f: n & 63, t: (n >> 6) & 63, pr: (n >> 12) & 7 }; }
+};
+
+/* ---------- backend 1: db claude.ai ---------- */
+const NetDB = Object.assign({}, NetBase, {
   db: null, uid: null, state: 'init', msg: '', ref: null, unsub: null, role: null, code: null, doc: null, q: Promise.resolve(),
   async init() {
     try {
-      if (!window.claude || !window.claude.use) { this.state = 'off'; this.msg = 'Multiplayer hanya jalan kalau halaman dibuka lewat claude.ai.'; return; }
       const r = await Promise.all([window.claude.use('user'), window.claude.use('db')]);
       const user = r[0]; this.db = r[1];
       this.uid = user ? await user.id() : null;
@@ -860,13 +887,6 @@ const Net = {
       else { this.state = 'ready'; this.msg = ''; }
     } catch (e) { this.state = 'off'; this.msg = 'Multiplayer tidak tersedia di tampilan ini.'; }
   },
-  genCode() {
-    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = '';
-    const r = crypto.getRandomValues(new Uint8Array(5));
-    for (const x of r) c += A[x % A.length];
-    return c;
-  },
-  norm(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); },
   async create(name) {
     for (let i = 0; i < 6; i++) {
       const code = this.genCode(), ref = this.db.doc('games/' + code);
@@ -911,10 +931,119 @@ const Net = {
     this.unsub = null; this.ref = null; this.role = null; this.code = null; this.doc = null;
     if (!ref) return;
     try { if (role === 'host' && d && !d.guest) await ref.delete(); else await ref.update({ gone: role }); } catch (e) {}
+  }
+});
+
+/* ---------- backend 2: peer-to-peer (PeerJS), untuk GitHub Pages ---------- */
+// Pembuat room (host) memegang dokumen room. Teman (guest) terhubung langsung ke host lewat kode: id peer = "catur-KODE".
+// Setiap perubahan dikirim ke lawan sebagai {t:'upd', data}; yang diterima hanya field yang diizinkan.
+const NetP2P = Object.assign({}, NetBase, {
+  p2p: true, state: 'init', msg: '', uid: null, role: null, code: null, doc: null, peer: null, conn: null, cb: null,
+  async init() {
+    if (!window.Peer) { this.state = 'off'; this.msg = 'Layanan multiplayer (PeerJS) gagal dimuat. Periksa internetmu lalu muat ulang halaman.'; return; }
+    let gid = '';
+    try { gid = sessionStorage.getItem('catur-gid') || ''; } catch (e) {}
+    if (!gid) {
+      gid = 'g' + Array.from(crypto.getRandomValues(new Uint8Array(10)), b => b.toString(16).padStart(2, '0')).join('');
+      try { sessionStorage.setItem('catur-gid', gid); } catch (e) {}
+    }
+    this.uid = gid; this.state = 'ready'; this.msg = '';
   },
-  enc(m) { return m.f | (m.t << 6) | ((m.pr || 0) << 12); },
-  dec(n) { return { f: n & 63, t: (n >> 6) & 63, pr: (n >> 12) & 7 }; }
-};
+  _open(id) {
+    return new Promise((res, rej) => {
+      let done = false, p = null;
+      const t = setTimeout(() => { try { p && p.destroy(); } catch (e) {} fin(rej, { type: 'timeout' }); }, 12000);
+      const fin = (f, v) => { if (!done) { done = true; clearTimeout(t); f(v); } };
+      try { p = id ? new Peer(id, { debug: 0 }) : new Peer({ debug: 0 }); } catch (e) { fin(rej, { type: 'fail' }); return; }
+      p.on('open', () => fin(res, p));
+      p.on('error', e => { if (!done) { try { p.destroy(); } catch (x) {} fin(rej, e || { type: 'fail' }); } });
+    });
+  },
+  _emit() { const cb = this.cb; if (cb) setTimeout(() => { if (this.cb === cb && this.doc) cb(this.doc, {}, null); }, 0); },
+  _merge(data) {
+    const d = this.doc; if (!d || !data || typeof data !== 'object') return;
+    if (Array.isArray(data.moves) && data.moves.length <= 800 && data.moves.every(n => Number.isInteger(n) && n >= 0 && n < 32768)) d.moves = data.moves.slice();
+    if ('result' in data) { const r = data.result; d.result = r && typeof r === 'object' && (r.loser === 1 || r.loser === -1) ? { type: 'resign', loser: r.loser } : null; }
+    if ('rematchBy' in data) d.rematchBy = (data.rematchBy === 'host' || data.rematchBy === 'guest') ? data.rematchBy : null;
+    if (Number.isInteger(data.round) && data.round >= d.round && data.round < 10000) d.round = data.round;
+    if (typeof data.whiteIsHost === 'boolean') d.whiteIsHost = data.whiteIsHost;
+    if ('gone' in data) d.gone = (data.gone === 'host' || data.gone === 'guest') ? data.gone : null;
+    if (typeof data.updated === 'number') d.updated = data.updated;
+  },
+  _set(data) { this._merge(data); this._emit(); },
+  async create(name) {
+    for (let i = 0; i < 6; i++) {
+      const code = this.genCode(); let p;
+      try { p = await this._open('catur-' + code); }
+      catch (e) { if (e && e.type === 'unavailable-id') continue; throw { code: 'net' }; }
+      this.peer = p; this.role = 'host'; this.code = code; this.conn = null;
+      this.doc = { code, host: this.uid, hostName: name, guest: null, guestName: '', round: 0, whiteIsHost: true, moves: [], result: null, rematchBy: null, gone: null, created: Date.now() };
+      p.on('connection', c => this._hostConn(c));
+      p.on('disconnected', () => { try { if (this.peer === p) p.reconnect(); } catch (e) {} });
+      return code;
+    }
+    throw { code: 'collision' };
+  },
+  _hostConn(c) {
+    c.on('data', m => this._hostMsg(c, m));
+    c.on('close', () => { if (this.conn === c) { this.conn = null; this._set({ gone: 'guest' }); } });
+    c.on('error', () => {});
+  },
+  _hostMsg(c, m) {
+    if (!m || typeof m !== 'object' || !this.doc) return;
+    const d = this.doc;
+    if (m.t === 'hello') {
+      const gid = String(m.gid || '').slice(0, 64), name = cleanName(m.name, 'Player2');
+      const reject = () => { try { c.send({ t: 'full' }); } catch (e) {} setTimeout(() => { try { c.close(); } catch (e) {} }, 250); };
+      if (this.conn && this.conn !== c) { if (gid === d.guest) { try { this.conn.close(); } catch (e) {} } else return reject(); }
+      if (d.guest && gid !== d.guest) return reject();
+      if (!d.guest) Object.assign(d, { guest: gid, guestName: name, round: 1, whiteIsHost: Math.random() < 0.5, moves: [], result: null, rematchBy: null });
+      d.gone = null; this.conn = c;
+      try { c.send({ t: 'doc', doc: d }); } catch (e) {}
+      this._emit();
+    } else if (m.t === 'upd' && c === this.conn) { this._merge(m.data); this._emit(); }
+  },
+  async join(code, name) {
+    let p; try { p = await this._open(); } catch (e) { throw { code: 'net' }; }
+    const c = p.connect('catur-' + code, { reliable: true, serialization: 'json' });
+    let settle = null;
+    const first = new Promise((res, rej) => {
+      const t = setTimeout(() => rej({ code: 'notfound' }), 12000);
+      settle = { ok: d => { clearTimeout(t); res(d); }, bad: e => { clearTimeout(t); rej(e); } };
+    });
+    p.on('error', e => settle.bad({ code: e && e.type === 'peer-unavailable' ? 'notfound' : 'net' }));
+    c.on('open', () => { try { c.send({ t: 'hello', gid: this.uid, name }); } catch (e) {} });
+    c.on('data', m => {
+      if (!m || typeof m !== 'object') return;
+      if (m.t === 'full') settle.bad({ code: 'full' });
+      else if (m.t === 'doc' && m.doc && Array.isArray(m.doc.moves)) { this.doc = m.doc; settle.ok(m.doc); this._emit(); }
+      else if (m.t === 'upd' && this.doc) { this._merge(m.data); this._emit(); }
+    });
+    c.on('close', () => { settle.bad({ code: 'notfound' }); if (this.conn === c) { this.conn = null; this._set({ gone: 'host' }); } });
+    c.on('error', () => settle.bad({ code: 'net' }));
+    try { await first; } catch (e) { try { p.destroy(); } catch (x) {} this.doc = null; throw e; }
+    this.peer = p; this.conn = c; this.role = 'guest'; this.code = code;
+    return 'guest';
+  },
+  sub(cb) { this.cb = cb; this._emit(); },
+  write(data) {
+    if (!this.doc) return Promise.reject({ code: 'closed' });
+    const live = !!(this.conn && this.conn.open);
+    if (this.role === 'guest' && !live) return Promise.reject({ code: 'offline' });
+    this._merge(data);
+    try { if (live) this.conn.send({ t: 'upd', data }); } catch (e) { return Promise.reject(e); }
+    this._emit();
+    return Promise.resolve();
+  },
+  async leave() {
+    const c = this.conn, p = this.peer, role = this.role;
+    try { if (c && c.open) c.send({ t: 'upd', data: { gone: role } }); } catch (e) {}
+    this.cb = null; this.conn = null; this.peer = null; this.role = null; this.code = null; this.doc = null;
+    setTimeout(() => { try { c && c.close(); } catch (e) {} try { p && p.destroy(); } catch (e) {} }, 200);
+  }
+});
+
+const Net = (window.claude && window.claude.use) ? NetDB : NetP2P;
 
 // ===== APP / UI =====
 const $ = id => document.getElementById(id);
@@ -1257,6 +1386,7 @@ function renderNet() {
   st.classList.toggle('ok', ok);
   st.querySelector('span').textContent = Net.state === 'init' ? 'Menghubungkan…' : (ok ? 'Siap main online' : Net.msg);
   $('btnCreate').disabled = !ok; $('btnJoin').disabled = !ok;
+  $('p2pNote').hidden = !Net.p2p;
 }
 function netErr(e) {
   const m = { notfound: 'Kode tidak ditemukan. Cek lagi hurufnya.', full: 'Room itu sudah penuh.', busy: 'Room sedang dimasuki orang lain. Coba lagi.', collision: 'Gagal membuat kode. Coba lagi.' }[e && e.code] || 'Gagal terhubung ke room. Coba lagi sebentar lagi.';
@@ -1308,6 +1438,9 @@ async function startNetRound(d) {
 function netSync(d) {
   if (!G || G.kind !== 'net' || !d) return;
   const need = d.moves || [];
+  for (let i = 0; i < G.hist.length && i < need.length; i++) {
+    if (Net.enc(G.hist[i].m) !== need[i]) { toast('Data permainan tidak sinkron. Keluar lalu gabung ulang.'); return; }
+  }
   if (need.length > G.hist.length) {
     while (G.hist.length < need.length) {
       const last = G.hist.length === need.length - 1;
@@ -1431,4 +1564,5 @@ Net.init().then(() => { if (!$('pMulti').hidden) renderNet(); });
 
 </script>
 
-</body></html>
+</body>
+</html>
