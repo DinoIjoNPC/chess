@@ -1,0 +1,1058 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Catur Hitam Putih</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Konsep: satu papan 2D hitam putih. Menu di kiri dengan pratinjau papan di kanan; saat main, papan di kiri
+   dan panel langkah di kanan (di ponsel ditumpuk). Dua kulit: Classic (cetakan klasik, serif, bingkai ganda)
+   dan Modern (datar, geometris, sans). Warna hanya hitam, putih, abu; merah hanya untuk tanda skak. */
+:root {
+  --bg: #e7e7e7; --panel: #f7f7f7; --fg: #0f0f0f; --mut: #5a5a5a; --line: #c2c2c2;
+  --btn: #0f0f0f; --onbtn: #f7f7f7; --chip: #d2d2d2; --warn: #c2332b;
+  --sqL: #e9e9e9; --sqD: #8c8c8c; --pw: #fbfbfb; --pwS: #111; --pb: #151515; --pbS: #000; --pbD: #d6d6d6;
+  --coL: #5a5a5a; --coD: #e6e6e6; --bw: 6px; --rad: 4px; --pshadow: none;
+  --display: "Cormorant Garamond", Georgia, "Times New Roman", serif; --dsz: 1.18;
+  --body: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0b0b; --panel: #171717; --fg: #f2f2f2; --mut: #9d9d9d; --line: #353535;
+    --btn: #f2f2f2; --onbtn: #0b0b0b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0b0b; --panel: #171717; --fg: #f2f2f2; --mut: #9d9d9d; --line: #353535;
+  --btn: #f2f2f2; --onbtn: #0b0b0b; color-scheme: dark;
+}
+#app[data-skin="modern"] {
+  --sqL: #f1f1f1; --sqD: #1f1f1f; --pbS: #fff; --pbD: #fff; --coL: #6a6a6a; --coD: #bdbdbd;
+  --bw: 0px; --rad: 12px; --pshadow: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+  --display: "Space Grotesk", system-ui, sans-serif; --dsz: 1;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 28px; min-height: 100%;
+}
+#app { max-width: 1040px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+/* tombol umum */
+.btn { background: var(--panel); border: 1px solid var(--line); border-radius: var(--rad); padding: 10px 14px; font-weight: 600; font-size: 14px; min-height: 44px; }
+.btn:hover:not(:disabled) { border-color: var(--fg); }
+.btn.pri { background: var(--btn); color: var(--onbtn); border-color: var(--btn); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.ghost, button.ghost { background: transparent; }
+
+/* ---------- menu ---------- */
+.menu { display: grid; gap: 22px; grid-template-areas: "intro" "pv" "opts"; }
+.intro { grid-area: intro; }
+.intro h1 { font-size: calc(54px * var(--dsz)); line-height: 1; font-weight: 700; }
+.intro p { color: var(--mut); margin: 8px 0 0; max-width: 46ch; }
+.pvwrap { grid-area: pv; width: min(100%, 300px); justify-self: center; }
+.opts { grid-area: opts; display: grid; gap: 18px; align-content: start; }
+.grp { display: grid; gap: 8px; }
+.lbl { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--mut); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: var(--rad); overflow: hidden; background: var(--panel); }
+.opt { background: transparent; border: 0; padding: 11px 8px; min-height: 44px; font-weight: 600; font-size: 14px; border-right: 1px solid var(--line); }
+.opt:last-child { border-right: 0; }
+.opt.on { background: var(--btn); color: var(--onbtn); }
+.note { color: var(--mut); font-size: 13px; margin: 0; max-width: 52ch; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.actions .btn { flex: 1 1 160px; }
+@media (min-width: 780px) {
+  .menu { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "intro pv" "opts pv"; column-gap: 40px; align-items: start; }
+  .pvwrap { width: 100%; position: sticky; top: 18px; grid-row: 1 / span 2; }
+}
+
+/* ---------- papan ---------- */
+.board {
+  display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); width: 100%; aspect-ratio: 1 / 1;
+  border: var(--bw) solid var(--fg); border-radius: var(--rad); overflow: hidden; background: var(--sqD);
+  outline: 1px solid var(--fg); outline-offset: calc(var(--bw) / 2 * 0.5);
+}
+#app[data-skin="modern"] .board { outline: 0; }
+.sq { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0; border: 0; border-radius: 0; background: var(--sqL); }
+.sq.d { background: var(--sqD); }
+.pc { width: 88%; height: 88%; display: block; pointer-events: none; overflow: visible; filter: var(--pshadow); }
+.pc.w .bd path { fill: var(--pw); stroke: var(--pwS); stroke-width: 2.6; stroke-linejoin: round; }
+.pc.b .bd path { fill: var(--pb); stroke: var(--pbS); stroke-width: 2.6; stroke-linejoin: round; }
+.pc .det { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pc.w .det { stroke: var(--pwS); }
+.pc.b .det { stroke: var(--pbD); }
+.pc.modern.b .bd path { stroke-width: 2.2; }
+.co { position: absolute; font-style: normal; font-weight: 600; line-height: 1; pointer-events: none; font-size: 11px; }
+.co.rk { top: 3px; left: 4px; }
+.co.fl { bottom: 3px; right: 4px; }
+.sq.l .co { color: var(--coL); } .sq.d .co { color: var(--coD); }
+#board .sq { cursor: pointer; }
+#board .sq:focus-visible { outline: 3px solid var(--fg); outline-offset: -3px; z-index: 2; }
+.sq::before, .sq::after { content: ""; position: absolute; pointer-events: none; }
+/* langkah terakhir: arsir diagonal */
+.sq.last::before { inset: 0; background: repeating-linear-gradient(135deg, rgba(0,0,0,.26) 0 3px, transparent 3px 8px); }
+.sq.d.last::before { background: repeating-linear-gradient(135deg, rgba(255,255,255,.3) 0 3px, transparent 3px 8px); }
+/* skak */
+.sq.chk::before { inset: 0; background: radial-gradient(circle closest-side, var(--warn) 0 55%, transparent 100%); opacity: .85; }
+/* bidak terpilih */
+.sq.sel { box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 7px #000; }
+/* jalur navigasi: titik untuk kotak kosong, cincin untuk bidak yang bisa dimakan */
+.sq.tgt::after { width: 28%; height: 28%; border-radius: 50%; background: #111; box-shadow: 0 0 0 2.5px #fff; z-index: 1; }
+.sq.tgt.cap::after { inset: 0; width: auto; height: auto; border-radius: 0; box-shadow: none; background: radial-gradient(circle closest-side, transparent 80%, #111 81% 91%, #fff 92% 98%, transparent 99%); }
+.sq.tgt { cursor: pointer; }
+/* saran langkah */
+.sq.hnt::after { inset: 4px; border: 3px dashed #111; animation: pulse 1.1s ease-in-out infinite; }
+.sq.d.hnt::after { border-color: #fff; }
+@keyframes pulse { 50% { opacity: .35; } }
+@keyframes pop { 0% { transform: scale(.7); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.sq.pop .pc { animation: pop .22s ease-out; }
+@media (hover: hover) { #board .sq:hover:not(.sel) { box-shadow: inset 0 0 0 3px rgba(128,128,128,.75); } }
+@media (prefers-reduced-motion: reduce) { .sq.pop .pc, .sq.hnt::after { animation: none; } }
+
+/* ---------- layar main ---------- */
+.gwrap { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.stage { display: grid; gap: 8px; width: 100%; max-width: max(320px, calc(100svh - 190px)); margin: 0 auto; min-width: 0; }
+.bwrap { position: relative; container-type: inline-size; }
+.bwrap .co { font-size: max(8px, 1.9cqw); }
+.status { font-family: var(--display); font-size: calc(22px * var(--dsz)); font-weight: 700; min-height: 1.3em; }
+.status.warn { color: var(--warn); }
+.strip { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px; border: 1px solid var(--line); border-radius: var(--rad); background: var(--panel); min-width: 0; }
+.strip.act { border-color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--fg); flex: none; }
+.dot.w { background: #fff; } .dot.b { background: #000; }
+.nm { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cp { display: flex; padding: 1px 4px 1px 2px; background: var(--chip); border-radius: 6px; min-width: 0; overflow: hidden; }
+.cp:empty { display: none; }
+.cp .pc { width: 20px; height: 20px; margin-right: -7px; flex: none; filter: none; }
+.adv { font-size: 13px; font-weight: 600; color: var(--mut); }
+.tm { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; }
+.promo { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 5; padding: 12px; }
+.promo p { margin: 0; color: #fff; font-weight: 600; }
+.promo > div { display: flex; gap: 8px; }
+.promo > div button { width: clamp(52px, 18cqw, 84px); aspect-ratio: 1; background: var(--sqL); border: 2px solid #fff; border-radius: var(--rad); padding: 4px; }
+.promo > div button:hover { background: #fff; }
+.promo .ghost { color: #fff; border: 1px solid #fff; border-radius: var(--rad); padding: 8px 16px; background: transparent; }
+.side { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.ctrls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ctrls .btn { padding-inline: 6px; }
+.tgl { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tgl button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--rad); min-height: 52px; }
+.tgl span { font-size: 12px; color: var(--mut); }
+.tgl b { font-size: 14px; }
+.hist { border: 1px solid var(--line); border-radius: var(--rad); background: var(--panel); padding: 12px; }
+.hist h3 { font-size: calc(20px * var(--dsz)); margin-bottom: 8px; }
+#moves { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; font-variant-numeric: tabular-nums; }
+#moves li { display: grid; grid-template-columns: 34px 1fr 1fr; padding: 3px 0; font-size: 14px; border-bottom: 1px solid var(--line); }
+#moves li:last-child { border-bottom: 0; font-weight: 600; }
+#moves .n { color: var(--mut); }
+#moves .empty { display: block; color: var(--mut); }
+@media (min-width: 860px) {
+  .gwrap { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  .stage { margin: 0; }
+  #moves { max-height: 320px; }
+}
+
+/* ---------- overlay & toast ---------- */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 20;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--panel); border: 1px solid var(--fg); border-radius: var(--rad); padding: 24px; width: min(100%, 380px); display: grid; gap: 12px; }
+.card h2 { font-size: calc(38px * var(--dsz)); line-height: 1; }
+.card p { margin: 0; color: var(--mut); }
+.card .acts { display: grid; gap: 8px; margin-top: 6px; }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; transition: opacity .2s, transform .2s;
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: var(--rad); font-size: 14px; max-width: min(92vw, 420px); text-align: center; pointer-events: none; z-index: 30; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+</style>
+
+<div id="app" data-skin="classic">
+  <section id="menu" class="menu" aria-label="Menu utama">
+    <div class="intro">
+      <h1>Catur</h1>
+      <p>Papan 2D hitam putih dengan aturan lengkap. Lawan komputer, atau main gantian berdua di satu layar.</p>
+    </div>
+    <div class="pvwrap"><div id="preview" class="board" aria-hidden="true"></div></div>
+    <div class="opts">
+      <div class="grp">
+        <span class="lbl">Mode</span>
+        <div class="seg">
+          <button type="button" class="opt" data-k="mode" data-v="ai">Lawan Komputer</button>
+          <button type="button" class="opt" data-k="mode" data-v="pvp">2 Pemain Gantian</button>
+        </div>
+      </div>
+      <div id="grpAI" class="opts">
+        <div class="grp">
+          <span class="lbl">Tingkat komputer</span>
+          <div class="seg">
+            <button type="button" class="opt" data-k="level" data-v="easy">Mudah</button>
+            <button type="button" class="opt" data-k="level" data-v="medium">Sedang</button>
+            <button type="button" class="opt" data-k="level" data-v="hard">Sulit</button>
+          </div>
+          <p id="lvlDesc" class="note"></p>
+        </div>
+        <div class="grp">
+          <span class="lbl">Kamu main sebagai</span>
+          <div class="seg">
+            <button type="button" class="opt" data-k="side" data-v="w">Putih</button>
+            <button type="button" class="opt" data-k="side" data-v="b">Hitam</button>
+            <button type="button" class="opt" data-k="side" data-v="r">Acak</button>
+          </div>
+        </div>
+      </div>
+      <div id="grpPvp" class="grp" hidden>
+        <span class="lbl">Putar papan tiap giliran</span>
+        <div class="seg">
+          <button type="button" class="opt" data-k="autoflip" data-v="true">Ya</button>
+          <button type="button" class="opt" data-k="autoflip" data-v="false">Tidak</button>
+        </div>
+        <p class="note">Pilih Ya kalau layar dipakai bergantian. Papan akan berputar menghadap pemain yang sedang jalan.</p>
+      </div>
+      <div class="grp">
+        <span class="lbl">Tema</span>
+        <div class="seg">
+          <button type="button" class="opt" data-k="skin" data-v="classic">Classic</button>
+          <button type="button" class="opt" data-k="skin" data-v="modern">Modern</button>
+        </div>
+      </div>
+      <div class="grp">
+        <span class="lbl">Navigasi jalur</span>
+        <div class="seg">
+          <button type="button" class="opt" data-k="hints" data-v="true">Nyala</button>
+          <button type="button" class="opt" data-k="hints" data-v="false">Mati</button>
+        </div>
+        <p class="note">Ketuk satu bidak, lalu titik hitam menunjukkan petak yang boleh dituju. Lingkaran menandai bidak lawan yang bisa dimakan.</p>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnStart" class="btn pri">Mulai Main</button>
+        <button type="button" id="btnResume" class="btn" hidden>Lanjutkan Permainan</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="game" hidden aria-label="Permainan catur">
+    <div class="gwrap">
+      <div class="stage">
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+        <div id="stripTop" class="strip"></div>
+        <div class="bwrap">
+          <div id="board" class="board"></div>
+          <div id="promo" class="promo" hidden></div>
+        </div>
+        <div id="stripBot" class="strip"></div>
+      </div>
+      <aside class="side">
+        <div class="ctrls">
+          <button type="button" id="btnUndo" class="btn">Batal</button>
+          <button type="button" id="btnHint" class="btn">Saran</button>
+          <button type="button" id="btnFlip" class="btn">Putar</button>
+          <button type="button" id="btnMenu" class="btn">Menu</button>
+        </div>
+        <div class="tgl">
+          <button type="button" id="btnNav" aria-pressed="true"><span>Navigasi jalur</span><b></b></button>
+          <button type="button" id="btnSkin"><span>Tema</span><b></b></button>
+        </div>
+        <div class="hist">
+          <h3>Riwayat langkah</h3>
+          <ol id="moves"></ol>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <div id="end" class="overlay" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+      <h2 id="endTitle"></h2>
+      <p id="endMsg"></p>
+      <div class="acts">
+        <button type="button" id="endAgain" class="btn pri">Main Lagi</button>
+        <button type="button" id="endView" class="btn">Lihat Papan</button>
+        <button type="button" id="endMenu" class="btn">Kembali ke Menu</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+// ===== ENGINE: aturan catur + AI =====
+// papan: Int8Array(64), indeks = baris*8+kolom, baris 0 = rank 8. Putih positif, hitam negatif.
+// 1=pion 2=kuda 3=gajah 4=benteng 5=ratu 6=raja
+const PV = [0, 100, 320, 330, 500, 900, 0];
+const PL = { 2: 'N', 3: 'B', 4: 'R', 5: 'Q', 6: 'K' };
+const KN = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+const KG = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const DB = [[-1,-1],[-1,1],[1,-1],[1,1]];
+const DR = [[-1,0],[1,0],[0,-1],[0,1]];
+const INF = 1000000, MATE = 100000;
+
+function sqName(i) { return 'abcdefgh'[i & 7] + (8 - (i >> 3)); }
+
+function initState() {
+  return fromFEN('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+}
+
+function fromFEN(fen) {
+  const [pl, tn, ca, ep, hm, fm] = fen.split(' ');
+  const b = new Int8Array(64), k = [-1, -1];
+  let i = 0;
+  for (const ch of pl) {
+    if (ch === '/') continue;
+    if (ch >= '1' && ch <= '8') { i += +ch; continue; }
+    const lo = ch.toLowerCase(), t = { p: 1, n: 2, b: 3, r: 4, q: 5, k: 6 }[lo];
+    const col = ch === lo ? -1 : 1;
+    b[i] = col * t;
+    if (t === 6) k[col === 1 ? 0 : 1] = i;
+    i++;
+  }
+  let c = 0;
+  if (ca.includes('K')) c |= 1;
+  if (ca.includes('Q')) c |= 2;
+  if (ca.includes('k')) c |= 4;
+  if (ca.includes('q')) c |= 8;
+  const epi = ep === '-' ? -1 : (8 - +ep[1]) * 8 + (ep.charCodeAt(0) - 97);
+  return { b, turn: tn === 'w' ? 1 : -1, castle: c, ep: epi, half: +(hm || 0), full: +(fm || 1), k };
+}
+
+function attacked(b, sq, by) {
+  const r = sq >> 3, c = sq & 7;
+  const pr = r + by;
+  if (pr >= 0 && pr < 8) {
+    if (c > 0 && b[pr * 8 + c - 1] === by) return true;
+    if (c < 7 && b[pr * 8 + c + 1] === by) return true;
+  }
+  for (const [dr, dc] of KN) {
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && b[rr * 8 + cc] === by * 2) return true;
+  }
+  for (const [dr, dc] of KG) {
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && b[rr * 8 + cc] === by * 6) return true;
+  }
+  for (const [dr, dc] of DR) {
+    let rr = r + dr, cc = c + dc;
+    while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+      const p = b[rr * 8 + cc];
+      if (p) { if (p === by * 4 || p === by * 5) return true; break; }
+      rr += dr; cc += dc;
+    }
+  }
+  for (const [dr, dc] of DB) {
+    let rr = r + dr, cc = c + dc;
+    while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+      const p = b[rr * 8 + cc];
+      if (p) { if (p === by * 3 || p === by * 5) return true; break; }
+      rr += dr; cc += dc;
+    }
+  }
+  return false;
+}
+
+function genPseudo(s, capsOnly) {
+  const b = s.b, us = s.turn, out = [];
+  for (let sq = 0; sq < 64; sq++) {
+    const p = b[sq];
+    if (p === 0 || (p > 0) !== (us > 0)) continue;
+    const t = p < 0 ? -p : p, r = sq >> 3, c = sq & 7;
+    if (t === 1) {
+      const dir = -us, nr = r + dir, last = us === 1 ? 0 : 7, start = us === 1 ? 6 : 1;
+      if (nr < 0 || nr > 7) continue;
+      if (!capsOnly || nr === last) {
+        const to = nr * 8 + c;
+        if (b[to] === 0) {
+          if (nr === last) { for (const pr of [5, 4, 3, 2]) out.push({ f: sq, t: to, pr }); }
+          else {
+            out.push({ f: sq, t: to, pr: 0 });
+            if (r === start && !capsOnly && b[to + dir * 8] === 0) out.push({ f: sq, t: to + dir * 8, pr: 0 });
+          }
+        }
+      }
+      for (const dc of [-1, 1]) {
+        const cc = c + dc;
+        if (cc < 0 || cc > 7) continue;
+        const to = nr * 8 + cc, q = b[to];
+        if (q !== 0 && (q > 0) !== (us > 0)) {
+          if (nr === last) { for (const pr of [5, 4, 3, 2]) out.push({ f: sq, t: to, pr, cap: q }); }
+          else out.push({ f: sq, t: to, pr: 0, cap: q });
+        } else if (q === 0 && to === s.ep) {
+          out.push({ f: sq, t: to, pr: 0, cap: -us, ep: 1 });
+        }
+      }
+    } else if (t === 2 || t === 6) {
+      for (const [dr, dc] of (t === 2 ? KN : KG)) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || rr > 7 || cc < 0 || cc > 7) continue;
+        const to = rr * 8 + cc, q = b[to];
+        if (q === 0) { if (!capsOnly) out.push({ f: sq, t: to, pr: 0 }); }
+        else if ((q > 0) !== (us > 0)) out.push({ f: sq, t: to, pr: 0, cap: q });
+      }
+      if (t === 6 && !capsOnly) {
+        if (us === 1 && sq === 60) {
+          if ((s.castle & 1) && !b[61] && !b[62] && b[63] === 4 && !attacked(b, 60, -1) && !attacked(b, 61, -1) && !attacked(b, 62, -1))
+            out.push({ f: 60, t: 62, pr: 0, cs: 1 });
+          if ((s.castle & 2) && !b[59] && !b[58] && !b[57] && b[56] === 4 && !attacked(b, 60, -1) && !attacked(b, 59, -1) && !attacked(b, 58, -1))
+            out.push({ f: 60, t: 58, pr: 0, cs: 2 });
+        }
+        if (us === -1 && sq === 4) {
+          if ((s.castle & 4) && !b[5] && !b[6] && b[7] === -4 && !attacked(b, 4, 1) && !attacked(b, 5, 1) && !attacked(b, 6, 1))
+            out.push({ f: 4, t: 6, pr: 0, cs: 1 });
+          if ((s.castle & 8) && !b[3] && !b[2] && !b[1] && b[0] === -4 && !attacked(b, 4, 1) && !attacked(b, 3, 1) && !attacked(b, 2, 1))
+            out.push({ f: 4, t: 2, pr: 0, cs: 2 });
+        }
+      }
+    } else {
+      const dirs = t === 3 ? DB : t === 4 ? DR : DB.concat(DR);
+      for (const [dr, dc] of dirs) {
+        let rr = r + dr, cc = c + dc;
+        while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+          const to = rr * 8 + cc, q = b[to];
+          if (q === 0) { if (!capsOnly) out.push({ f: sq, t: to, pr: 0 }); }
+          else { if ((q > 0) !== (us > 0)) out.push({ f: sq, t: to, pr: 0, cap: q }); break; }
+          rr += dr; cc += dc;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function apply(s, m) {
+  const b = s.b.slice(), us = s.turn;
+  let p = b[m.f];
+  const t = p < 0 ? -p : p;
+  let castle = s.castle, ep = -1, half = s.half + 1;
+  const k = s.k.slice();
+  if (t === 1 || m.cap) half = 0;
+  b[m.f] = 0;
+  if (m.ep) b[(m.f >> 3) * 8 + (m.t & 7)] = 0;
+  if (m.pr) p = us * m.pr;
+  b[m.t] = p;
+  if (t === 6) {
+    k[us === 1 ? 0 : 1] = m.t;
+    castle &= us === 1 ? ~3 : ~12;
+    if (m.cs === 1) { b[m.t + 1] = 0; b[m.t - 1] = us * 4; }
+    else if (m.cs === 2) { b[m.t - 2] = 0; b[m.t + 1] = us * 4; }
+  }
+  if (t === 1 && Math.abs(m.t - m.f) === 16) ep = (m.f + m.t) >> 1;
+  if (m.f === 63 || m.t === 63) castle &= ~1;
+  if (m.f === 56 || m.t === 56) castle &= ~2;
+  if (m.f === 7 || m.t === 7) castle &= ~4;
+  if (m.f === 0 || m.t === 0) castle &= ~8;
+  return { b, turn: -us, castle, ep, half, full: s.full + (us === -1 ? 1 : 0), k };
+}
+
+function legalMoves(s) {
+  const us = s.turn, ki = us === 1 ? 0 : 1, res = [];
+  for (const m of genPseudo(s)) {
+    const n = apply(s, m);
+    if (!attacked(n.b, n.k[ki], -us)) res.push(m);
+  }
+  return res;
+}
+
+function inCheck(s) { return attacked(s.b, s.k[s.turn === 1 ? 0 : 1], -s.turn); }
+
+function key(s) { return s.turn + '|' + s.castle + '|' + s.ep + '|' + s.b.join(','); }
+
+function insufficient(s) {
+  const bishops = [];
+  let minors = 0;
+  for (let i = 0; i < 64; i++) {
+    const p = s.b[i], t = p < 0 ? -p : p;
+    if (t === 1 || t === 4 || t === 5) return false;
+    if (t === 2 || t === 3) { minors++; if (t === 3) bishops.push(((i >> 3) + (i & 7)) & 1); }
+  }
+  if (minors <= 1) return true;
+  if (minors === bishops.length && bishops.every(x => x === bishops[0])) return true;
+  return false;
+}
+
+function gameStatus(s, repCount) {
+  const mv = legalMoves(s);
+  if (!mv.length) return inCheck(s) ? { over: true, result: 'mate', winner: -s.turn } : { over: true, result: 'stalemate' };
+  if (insufficient(s)) return { over: true, result: 'insufficient' };
+  if (s.half >= 100) return { over: true, result: 'fifty' };
+  if (repCount >= 3) return { over: true, result: 'repetition' };
+  return { over: false, check: inCheck(s) };
+}
+
+function san(s, m, legals) {
+  const p = Math.abs(s.b[m.f]);
+  let out;
+  if (m.cs) out = m.cs === 1 ? 'O-O' : 'O-O-O';
+  else if (p === 1) {
+    out = (m.cap ? 'abcdefgh'[m.f & 7] + 'x' : '') + sqName(m.t) + (m.pr ? '=' + PL[m.pr] : '');
+  } else {
+    let dis = '';
+    const oth = legals.filter(o => o !== m && o.t === m.t && Math.abs(s.b[o.f]) === p);
+    if (oth.length) {
+      const sf = oth.some(o => (o.f & 7) === (m.f & 7)), sr = oth.some(o => (o.f >> 3) === (m.f >> 3));
+      if (!sf) dis = 'abcdefgh'[m.f & 7];
+      else if (!sr) dis = String(8 - (m.f >> 3));
+      else dis = sqName(m.f);
+    }
+    out = PL[p] + dis + (m.cap ? 'x' : '') + sqName(m.t);
+  }
+  const n = apply(s, m);
+  if (attacked(n.b, n.k[n.turn === 1 ? 0 : 1], -n.turn)) out += legalMoves(n).length ? '+' : '#';
+  return out;
+}
+
+function perft(s, d) {
+  if (d === 0) return 1;
+  let n = 0;
+  for (const m of legalMoves(s)) n += perft(apply(s, m), d - 1);
+  return n;
+}
+
+// ---------- evaluasi ----------
+const PST = [null,
+  [0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5, 0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
+  [-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,0,0,0,-20,-40, -30,0,10,15,15,10,0,-30, -30,5,15,20,20,15,5,-30, -30,0,15,20,20,15,0,-30, -30,5,10,15,15,10,5,-30, -40,-20,0,5,5,0,-20,-40, -50,-40,-30,-30,-30,-30,-40,-50],
+  [-20,-10,-10,-10,-10,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,10,10,5,0,-10, -10,5,5,10,10,5,5,-10, -10,0,10,10,10,10,0,-10, -10,10,10,10,10,10,10,-10, -10,5,0,0,0,0,5,-10, -20,-10,-10,-10,-10,-10,-10,-20],
+  [0,0,0,0,0,0,0,0, 5,10,10,10,10,10,10,5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, 0,0,0,5,5,0,0,0],
+  [-20,-10,-10,-5,-5,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,5,5,5,0,-10, -5,0,5,5,5,5,0,-5, 0,0,5,5,5,5,0,-5, -10,5,5,5,5,5,0,-10, -10,0,5,0,0,0,0,-10, -20,-10,-10,-5,-5,-10,-10,-20],
+  [-30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -20,-30,-30,-40,-40,-30,-30,-20, -10,-20,-20,-20,-20,-20,-20,-10, 20,20,0,0,0,0,20,20, 20,30,10,0,0,10,30,20],
+  [-50,-40,-30,-20,-20,-30,-40,-50, -30,-20,-10,0,0,-10,-20,-30, -30,-10,20,30,30,20,-10,-30, -30,-10,30,40,40,30,-10,-30, -30,-10,30,40,40,30,-10,-30, -30,-10,20,30,30,20,-10,-30, -30,-30,0,0,0,0,-30,-30, -50,-30,-30,-30,-30,-30,-30,-50]
+];
+
+function evaluate(s) {
+  const b = s.b;
+  let tot = 0;
+  for (let i = 0; i < 64; i++) { const p = b[i], t = p < 0 ? -p : p; if (t > 1 && t < 6) tot += PV[t]; }
+  const eg = tot < 2600;
+  let sc = 0, wB = 0, bB = 0;
+  for (let i = 0; i < 64; i++) {
+    const p = b[i];
+    if (!p) continue;
+    const t = p < 0 ? -p : p;
+    const tbl = t === 6 ? (eg ? PST[7] : PST[6]) : PST[t];
+    if (p > 0) { sc += PV[t] + tbl[i]; if (t === 3) wB++; }
+    else { sc -= PV[t] + tbl[i ^ 56]; if (t === 3) bB++; }
+  }
+  if (wB >= 2) sc += 25;
+  if (bB >= 2) sc -= 25;
+  return s.turn === 1 ? sc : -sc;
+}
+
+// ---------- pencarian ----------
+let nodes = 0, deadline = 0, stopFlag = false;
+
+function orderMoves(ms, s, pv) {
+  for (const m of ms) {
+    let v = 0;
+    if (m.cap) v = 1000 + 10 * PV[Math.abs(m.cap)] - PV[Math.abs(s.b[m.f])] / 10;
+    if (m.pr) v += PV[m.pr];
+    if (pv && m.f === pv.f && m.t === pv.t && m.pr === pv.pr) v += 1e6;
+    m.o = v;
+  }
+  ms.sort((a, b) => b.o - a.o);
+}
+
+function qsearch(s, alpha, beta) {
+  nodes++;
+  if ((nodes & 1023) === 0 && Date.now() > deadline) stopFlag = true;
+  if (stopFlag) return 0;
+  const us = s.turn, ki = us === 1 ? 0 : 1;
+  const stand = evaluate(s);
+  if (stand >= beta) return beta;
+  if (stand > alpha) alpha = stand;
+  const ms = genPseudo(s, true);
+  orderMoves(ms, s, null);
+  for (const m of ms) {
+    const n = apply(s, m);
+    if (attacked(n.b, n.k[ki], -us)) continue;
+    const sc = -qsearch(n, -beta, -alpha);
+    if (stopFlag) return 0;
+    if (sc >= beta) return beta;
+    if (sc > alpha) alpha = sc;
+  }
+  return alpha;
+}
+
+function negamax(s, depth, alpha, beta, ply) {
+  nodes++;
+  if ((nodes & 1023) === 0 && Date.now() > deadline) stopFlag = true;
+  if (stopFlag) return 0;
+  if (s.half >= 100) return 0;
+  const us = s.turn, ki = us === 1 ? 0 : 1;
+  const chk = attacked(s.b, s.k[ki], -us);
+  if (chk && ply < 14) depth++;
+  if (depth <= 0) return qsearch(s, alpha, beta);
+  const ms = genPseudo(s);
+  orderMoves(ms, s, null);
+  let best = -INF, legal = 0;
+  for (const m of ms) {
+    const n = apply(s, m);
+    if (attacked(n.b, n.k[ki], -us)) continue;
+    legal++;
+    const sc = -negamax(n, depth - 1, -beta, -alpha, ply + 1);
+    if (stopFlag) return 0;
+    if (sc > best) best = sc;
+    if (sc > alpha) alpha = sc;
+    if (alpha >= beta) break;
+  }
+  if (!legal) return chk ? -MATE + ply : 0;
+  return best;
+}
+
+// level: 'easy' | 'medium' | 'hard' | 'hint'
+function findBest(s, level, keys) {
+  const legals = legalMoves(s);
+  if (!legals.length) return null;
+  if (legals.length === 1) return legals[0];
+  const rnd = n => (Math.random() * n) | 0;
+
+  if (level === 'easy') {
+    if (Math.random() < 0.3) return legals[rnd(legals.length)];
+    let best = null, bs = -1e9;
+    for (const m of legals) {
+      const n = apply(s, m);
+      let sc = -evaluate(n) + (Math.random() * 260 - 130);
+      if (inCheck(n) && !legalMoves(n).length) sc += 1e6;
+      if (sc > bs) { bs = sc; best = m; }
+    }
+    return best;
+  }
+
+  if (level === 'medium') {
+    stopFlag = false; nodes = 0; deadline = Date.now() + 2500;
+    const list = [];
+    for (const m of legals) {
+      const n = apply(s, m);
+      const v = -negamax(n, 2, -INF, INF, 1);
+      if (stopFlag) break;
+      list.push({ m, v });
+    }
+    if (!list.length) return legals[rnd(legals.length)];
+    list.sort((a, b) => b.v - a.v);
+    const top = list[0].v;
+    const pool = list.filter(x => x.v >= top - 18);
+    return pool[rnd(pool.length)].m;
+  }
+
+  stopFlag = false; nodes = 0;
+  deadline = Date.now() + (level === 'hint' ? 1000 : 2200);
+  const maxD = level === 'hint' ? 5 : 7;
+  const kc = {};
+  if (keys) for (const k of keys) kc[k] = (kc[k] || 0) + 1;
+  let best = legals[0], pv = null;
+  for (let d = 1; d <= maxD; d++) {
+    const ms = legals.slice();
+    orderMoves(ms, s, pv);
+    let alpha = -INF, bm = null, ok = true;
+    for (const m of ms) {
+      const n = apply(s, m);
+      let v = -negamax(n, d - 1, -INF, -alpha, 1);
+      if (stopFlag) { ok = false; break; }
+      const c = keys ? (kc[key(n)] || 0) : 0;
+      if (c && v > 50) v -= c * 45;
+      if (bm === null || v > alpha) { alpha = v; bm = m; }
+    }
+    if (!ok) break;
+    best = bm; pv = bm;
+    if (alpha > MATE - 100) break;
+  }
+  return best;
+}
+
+if (typeof module !== 'undefined') module.exports = { initState, fromFEN, legalMoves, apply, perft, gameStatus, san, findBest, inCheck, key, insufficient, sqName, PV };
+
+// ===== BIDAK SVG: set Classic (Staunton berdetail) dan Modern (geometris) =====
+// Tiap bidak: array path "body" (diisi + garis tepi) dan "det" (garis detail tanpa isi).
+const PIECE_SETS = {
+  classic: {
+    1: { body: [
+      'M50 21a11 11 0 1 1 0 22a11 11 0 0 1 0-22Z',
+      'M37 45h26a3 3 0 0 1 0 6H37a3 3 0 0 1 0-6Z',
+      'M40 51c0 12-9 20-12 31h44c-3-11-12-19-12-31Z',
+      'M26 82h48a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H26a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3Z'],
+      det: ['M44 31a7 7 0 0 1 6-5', 'M33 74h34'] },
+    2: { body: [
+      'M28 82c0-14 6-24 15-31c-8-2-15-8-16-14c-1-4 2-7 6-10l5-12l-2-9l9 7c3-3 7-5 11-6c14 5 20 22 19 40c-1 10-1 20-3 35Z',
+      'M24 82h52a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H24a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3Z'],
+      det: ['M42 29a2 2 0 1 1 0 4a2 2 0 0 1 0-4Z', 'M31 41l4 2', 'M56 22c8 6 14 16 14 30', 'M60 28c5 6 8 14 8 24', 'M43 51c4 4 10 6 16 6'] },
+    3: { body: [
+      'M50 8a6 6 0 1 1 0 12a6 6 0 0 1 0-12Z',
+      'M50 20c13 8 19 22 13 34c-2 3-5 5-5 7H42c0-2-3-4-5-7c-6-12 0-26 13-34Z',
+      'M36 61h28a3 3 0 0 1 0 7H36a3 3 0 0 1 0-7Z',
+      'M42 68h16l5 14H37Z',
+      'M26 82h48a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H26a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3Z'],
+      det: ['M50 28v14M43 35h14', 'M41 74h18'] },
+    4: { body: [
+      'M28 14h11v9h5v-9h12v9h5v-9h11v24l-7 6v26l7 8v6H28v-6l7-8V44l-7-6Z',
+      'M24 82h52a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H24a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3Z'],
+      det: ['M28 38h44', 'M35 44h30', 'M35 70h30', 'M35 76h30'] },
+    5: { body: [
+      'M22 21a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z', 'M40 15a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z', 'M50 8a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z', 'M60 15a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z', 'M78 21a5 5 0 1 1 0 10a5 5 0 0 1 0-10Z',
+      'M22 30L31 52L40 24L45 48L50 18L55 48L60 24L69 52L78 30L66 68H34Z',
+      'M31 68h38a3 3 0 0 1 0 8H31a3 3 0 0 1 0-8Z',
+      'M26 82h48a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H26a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3Z'],
+      det: ['M36 62h28', 'M44 40l-3 22M56 40l3 22'] },
+    6: { body: [
+      'M46 4h8v8h8v8h-8v12h-8V20h-8v-8h8Z',
+      'M30 38c0-9 12-12 20-6c8-6 20-3 20 6c0 12-6 20-8 30H38c-2-10-8-18-8-30Z',
+      'M31 68h38a3 3 0 0 1 0 8H31a3 3 0 0 1 0-8Z',
+      'M26 82h48a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H26a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3Z'],
+      det: ['M50 33v32', 'M37 44c3 6 4 12 4 20', 'M63 44c-3 6-4 12-4 20'] }
+  },
+  modern: {
+    1: { body: ['M50 20a13 13 0 1 1 0 26a13 13 0 0 1 0-26Z', 'M38 82l7-34h10l7 34Z', 'M28 82h44v10H28Z'], det: [] },
+    2: { body: ['M30 82l8-32l-12-6l6-16l18-18l8 10c14 6 20 24 18 62Z', 'M26 82h48v10H26Z'], det: ['M44 34h6v6h-6Z'] },
+    3: { body: ['M50 8a6 6 0 1 1 0 12a6 6 0 0 1 0-12Z', 'M50 22l17 28l-9 11l6 21H36l6-21l-9-11Z', 'M28 82h44v10H28Z'], det: ['M44 40l12 12'] },
+    4: { body: ['M28 16h12v10h5V16h10v10h5V16h12v28h-7v32h7v6H28v-6h7V44h-7Z', 'M24 82h52v10H24Z'], det: [] },
+    5: { body: ['M50 8a6 6 0 1 1 0 12a6 6 0 0 1 0-12Z', 'M24 30l14 24l12-30l12 30l14-24l-6 52H30Z', 'M26 82h48v10H26Z'], det: ['M36 66h28'] },
+    6: { body: ['M45 4h10v9h9v10h-9v9H45v-9h-9V13h9Z', 'M34 36h32l-4 46H38Z', 'M26 82h48v10H26Z'], det: ['M36 52h28'] }
+  }
+};
+
+function pieceSVG(type, color, skin) {
+  const def = PIECE_SETS[skin][type];
+  const body = def.body.map(d => '<path d="' + d + '"/>').join('');
+  const det = def.det.map(d => '<path class="det" d="' + d + '"/>').join('');
+  return '<svg class="pc ' + color + ' ' + skin + '" viewBox="0 0 100 100" aria-hidden="true"><g class="bd">' + body + '</g>' + det + '</svg>';
+}
+
+// ===== APP / UI =====
+const $ = id => document.getElementById(id);
+const DEF = { mode: 'ai', level: 'medium', side: 'w', skin: 'classic', hints: true, autoflip: false };
+let cfg = Object.assign({}, DEF);
+try { const raw = localStorage.getItem('catur-cfg'); if (raw) cfg = Object.assign(cfg, JSON.parse(raw)); } catch (e) {}
+function saveCfg() { try { localStorage.setItem('catur-cfg', JSON.stringify(cfg)); } catch (e) {} }
+
+const LEVEL_NAME = { easy: 'Mudah', medium: 'Sedang', hard: 'Sulit' };
+const PIECE_NAME = { 1: 'pion', 2: 'kuda', 3: 'gajah', 4: 'benteng', 5: 'ratu', 6: 'raja' };
+const MV = [0, 1, 3, 3, 5, 9];
+let G = null, gameSeq = 0, toastTimer = 0;
+
+function sgn(v) { return v > 0 ? 1 : -1; }
+function humanTurn() { return G.mode === 'pvp' || G.s.turn === G.human; }
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 2200);
+}
+
+function show(view) {
+  $('menu').hidden = view !== 'menu';
+  $('game').hidden = view !== 'game';
+  $('btnResume').hidden = !(G && !G.status.over);
+  window.scrollTo(0, 0);
+}
+
+/* ---------- permainan ---------- */
+function newGame() {
+  gameSeq++;
+  let human = 0, ai = 0;
+  if (cfg.mode === 'ai') {
+    human = cfg.side === 'w' ? 1 : cfg.side === 'b' ? -1 : (Math.random() < 0.5 ? 1 : -1);
+    ai = -human;
+  }
+  const s = initState();
+  G = { id: gameSeq, s, hist: [], keys: [key(s)], mode: cfg.mode, level: cfg.level, human, ai,
+        flipped: human === -1, sel: -1, legal: legalMoves(s), status: { over: false }, last: null,
+        animTo: -1, thinking: false, hintMove: null, promo: null, time: [0, 0] };
+  $('end').hidden = true;
+  show('game');
+  render();
+  maybeAI();
+}
+
+function doMove(m0) {
+  const s = G.s;
+  const m = G.legal.find(x => x.f === m0.f && x.t === m0.t && x.pr === m0.pr);
+  if (!m) return;
+  const notation = san(s, m, G.legal);
+  G.hist.push({ before: s, m, san: notation, cap: m.cap || 0 });
+  G.s = apply(s, m);
+  G.keys.push(key(G.s));
+  G.last = m; G.animTo = m.t; G.sel = -1; G.hintMove = null; G.promo = null;
+  G.legal = legalMoves(G.s);
+  const k = key(G.s);
+  const rep = G.keys.filter(x => x === k).length;
+  G.status = gameStatus(G.s, rep);
+  if (G.mode === 'pvp' && cfg.autoflip && !G.status.over) G.flipped = G.s.turn === -1;
+  render();
+  if (G.status.over) { endGame(); return; }
+  maybeAI();
+}
+
+function maybeAI() {
+  if (G.mode !== 'ai' || G.status.over || G.s.turn !== G.ai) return;
+  G.thinking = true;
+  renderStatus(); renderControls();
+  const id = G.id;
+  setTimeout(() => {
+    if (!G || G.id !== id) return;
+    const m = findBest(G.s, G.level, G.keys);
+    G.thinking = false;
+    if (m) doMove(m);
+  }, G.level === 'easy' ? 450 : 150);
+}
+
+function undo() {
+  if (!G || G.thinking || !G.hist.length) return;
+  do {
+    const e = G.hist.pop();
+    G.s = e.before;
+    G.keys.pop();
+  } while (G.mode === 'ai' && G.hist.length && G.s.turn !== G.human);
+  const lastE = G.hist[G.hist.length - 1];
+  G.last = lastE ? lastE.m : null;
+  G.animTo = -1; G.sel = -1; G.hintMove = null; G.promo = null;
+  G.legal = legalMoves(G.s);
+  G.status = gameStatus(G.s, 1);
+  $('end').hidden = true;
+  if (G.mode === 'pvp' && cfg.autoflip) G.flipped = G.s.turn === -1;
+  render();
+  maybeAI();
+}
+
+function hint() {
+  if (!G || G.status.over || G.thinking || !humanTurn() || G.promo) return;
+  G.thinking = true; G.sel = -1;
+  renderStatus(); renderControls();
+  const id = G.id;
+  setTimeout(() => {
+    if (!G || G.id !== id) return;
+    const m = findBest(G.s, 'hint', G.keys);
+    G.thinking = false;
+    if (!m) { render(); return; }
+    const mm = G.legal.find(x => x.f === m.f && x.t === m.t && x.pr === m.pr);
+    G.hintMove = mm;
+    render();
+    toast('Saran langkah: ' + san(G.s, mm, G.legal));
+  }, 40);
+}
+
+function endGame() {
+  const st = G.status;
+  let title, msg;
+  const side = v => (v === 1 ? 'Putih' : 'Hitam');
+  if (st.result === 'mate') {
+    title = 'Skakmat';
+    if (G.mode === 'ai') msg = st.winner === G.human ? 'Kamu menang melawan komputer level ' + LEVEL_NAME[G.level] + '.' : 'Komputer level ' + LEVEL_NAME[G.level] + ' menang. Coba lagi atau turunkan levelnya.';
+    else msg = side(st.winner) + ' menang.';
+  } else {
+    title = 'Remis';
+    msg = { stalemate: 'Pat: raja tidak punya langkah, tapi tidak sedang skak.',
+            insufficient: 'Bidak yang tersisa tidak cukup untuk skakmat.',
+            fifty: 'Aturan 50 langkah: tidak ada tangkapan atau gerakan pion selama 50 langkah.',
+            repetition: 'Posisi yang sama muncul tiga kali.' }[st.result];
+  }
+  $('endTitle').textContent = title;
+  $('endMsg').textContent = msg;
+  setTimeout(() => { if (G && G.status.over) $('end').hidden = false; }, 550);
+}
+
+/* ---------- interaksi papan ---------- */
+function onSquare(sq) {
+  if (!G || G.status.over || G.thinking || G.promo || !humanTurn()) return;
+  const s = G.s, p = s.b[sq];
+  const own = p !== 0 && sgn(p) === s.turn;
+  G.hintMove = null;
+  if (G.sel >= 0) {
+    const mv = G.legal.filter(m => m.f === G.sel && m.t === sq);
+    if (mv.length) {
+      if (mv.length > 1) { G.promo = mv; render(); return; }
+      doMove(mv[0]); return;
+    }
+    if (sq === G.sel) { G.sel = -1; render(); return; }
+    if (!own) {
+      G.sel = -1; render();
+      toast('Langkah itu tidak boleh. Nyalakan Navigasi untuk melihat jalurnya.');
+      return;
+    }
+  }
+  if (own) {
+    G.sel = sq; render();
+    if (!G.legal.some(m => m.f === sq)) toast('Bidak ini belum bisa bergerak.');
+  }
+}
+
+/* ---------- render ---------- */
+function sqLabel(sq, p) {
+  return sqName(sq) + ', ' + (p ? PIECE_NAME[Math.abs(p)] + ' ' + (p > 0 ? 'putih' : 'hitam') : 'kosong');
+}
+
+function renderBoard() {
+  const s = G.s, board = $('board');
+  const chk = (G.status.check || (G.status.over && G.status.result === 'mate')) ? s.k[s.turn === 1 ? 0 : 1] : -1;
+  const targets = G.sel >= 0 ? G.legal.filter(m => m.f === G.sel) : [];
+  const tmap = {};
+  for (const m of targets) tmap[m.t] = m.cap ? 2 : 1;
+  const anim = G.animTo; G.animTo = -1;
+  let html = '';
+  for (let vr = 0; vr < 8; vr++) {
+    for (let vc = 0; vc < 8; vc++) {
+      const r = G.flipped ? 7 - vr : vr, c = G.flipped ? 7 - vc : vc, sq = r * 8 + c, p = s.b[sq];
+      let cls = 'sq ' + (((r + c) & 1) ? 'd' : 'l');
+      if (G.sel === sq) cls += ' sel';
+      if (G.last && (G.last.f === sq || G.last.t === sq)) cls += ' last';
+      if (chk === sq) cls += ' chk';
+      if (cfg.hints && tmap[sq]) cls += tmap[sq] === 2 ? ' tgt cap' : ' tgt';
+      if (G.hintMove && (G.hintMove.f === sq || G.hintMove.t === sq)) cls += ' hnt';
+      if (anim === sq) cls += ' pop';
+      html += '<button type="button" class="' + cls + '" data-sq="' + sq + '" aria-label="' + sqLabel(sq, p) + '">';
+      if (p) html += pieceSVG(Math.abs(p), p > 0 ? 'w' : 'b', cfg.skin);
+      if (vc === 0) html += '<i class="co rk">' + (8 - r) + '</i>';
+      if (vr === 7) html += '<i class="co fl">' + 'abcdefgh'[c] + '</i>';
+      html += '</button>';
+    }
+  }
+  board.innerHTML = html;
+  // pilihan promosi
+  const pr = $('promo');
+  if (G.promo) {
+    const col = G.s.turn === 1 ? 'w' : 'b';
+    pr.innerHTML = '<p>Promosikan pion menjadi</p><div>' +
+      [5, 4, 3, 2].map(t => '<button type="button" data-pr="' + t + '" aria-label="' + PIECE_NAME[t] + '">' + pieceSVG(t, col, cfg.skin) + '</button>').join('') +
+      '</div><button type="button" class="ghost" data-pr="0">Batal</button>';
+    pr.hidden = false;
+  } else pr.hidden = true;
+}
+
+function fmtTime(t) { return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+
+function matOf(color) {
+  let v = 0;
+  for (let i = 0; i < 64; i++) { const p = G.s.b[i]; if (p && sgn(p) === color) v += MV[Math.abs(p)] || 0; }
+  return v;
+}
+
+function stripHTML(color) {
+  let name;
+  if (G.mode === 'ai') name = color === G.human ? 'Kamu' : 'Komputer · ' + LEVEL_NAME[G.level];
+  else name = 'Pemain ' + (color === 1 ? 'Putih' : 'Hitam');
+  const caps = G.hist.filter(h => h.cap && sgn(h.cap) === -color).map(h => Math.abs(h.cap)).sort((a, b) => b - a);
+  const diff = matOf(color) - matOf(-color);
+  const active = G.s.turn === color && !G.status.over;
+  return '<span class="dot ' + (color === 1 ? 'w' : 'b') + '"></span><b class="nm">' + name + '</b>' +
+    '<span class="cp">' + caps.map(t => pieceSVG(t, color === 1 ? 'b' : 'w', cfg.skin)).join('') + '</span>' +
+    (diff > 0 ? '<span class="adv">+' + diff + '</span>' : '') +
+    '<span class="tm">' + fmtTime(G.time[color === 1 ? 0 : 1]) + '</span>';
+}
+
+function renderStrips() {
+  const bottom = G.flipped ? -1 : 1;
+  const top = $('stripTop'), bot = $('stripBot');
+  top.innerHTML = stripHTML(-bottom); bot.innerHTML = stripHTML(bottom);
+  top.classList.toggle('act', G.s.turn === -bottom && !G.status.over);
+  bot.classList.toggle('act', G.s.turn === bottom && !G.status.over);
+}
+
+function renderMoves() {
+  let html = '';
+  for (let i = 0; i < G.hist.length; i += 2) {
+    html += '<li><span class="n">' + (i / 2 + 1) + '.</span><span>' + G.hist[i].san + '</span><span>' + (G.hist[i + 1] ? G.hist[i + 1].san : '') + '</span></li>';
+  }
+  const ol = $('moves');
+  ol.innerHTML = html || '<li class="empty">Belum ada langkah. Putih jalan duluan.</li>';
+  ol.scrollTop = ol.scrollHeight;
+}
+
+function renderStatus() {
+  const el = $('status'), s = G.s;
+  const who = s.turn === 1 ? 'Putih' : 'Hitam';
+  let t;
+  if (G.promo) t = 'Pilih bidak untuk promosi';
+  else if (G.thinking && G.mode === 'ai' && s.turn === G.ai) t = 'Komputer sedang berpikir…';
+  else if (G.thinking) t = 'Mencari saran terbaik…';
+  else if (G.status.over) t = G.status.result === 'mate' ? 'Skakmat. ' + (G.status.winner === 1 ? 'Putih' : 'Hitam') + ' menang' : 'Remis';
+  else if (G.status.check) t = 'Skak! Giliran ' + who;
+  else if (G.mode === 'ai') t = s.turn === G.human ? 'Giliranmu (' + who + ')' : 'Giliran komputer (' + who + ')';
+  else t = 'Giliran ' + who;
+  el.textContent = t;
+  el.classList.toggle('warn', !!G.status.check || (G.status.over && G.status.result === 'mate'));
+}
+
+function renderControls() {
+  $('btnUndo').disabled = !G.hist.length || G.thinking;
+  $('btnHint').disabled = G.status.over || G.thinking || !humanTurn() || !!G.promo;
+  $('btnNav').setAttribute('aria-pressed', cfg.hints);
+  $('btnNav').querySelector('b').textContent = cfg.hints ? 'Nyala' : 'Mati';
+  $('btnSkin').querySelector('b').textContent = cfg.skin === 'classic' ? 'Classic' : 'Modern';
+  $('app').dataset.skin = cfg.skin;
+}
+
+function render() { renderBoard(); renderStrips(); renderMoves(); renderStatus(); renderControls(); }
+
+/* ---------- menu ---------- */
+function previewHTML() {
+  const s = initState();
+  let html = '';
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const p = s.b[r * 8 + c];
+    html += '<div class="sq ' + (((r + c) & 1) ? 'd' : 'l') + '">' + (p ? pieceSVG(Math.abs(p), p > 0 ? 'w' : 'b', cfg.skin) : '') + '</div>';
+  }
+  return html;
+}
+
+function syncMenu() {
+  document.querySelectorAll('[data-k]').forEach(b => {
+    const v = b.dataset.v, k = b.dataset.k;
+    const on = String(cfg[k]) === v;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  $('grpAI').hidden = cfg.mode !== 'ai';
+  $('grpPvp').hidden = cfg.mode !== 'pvp';
+  $('app').dataset.skin = cfg.skin;
+  $('preview').innerHTML = previewHTML();
+  const desc = { easy: 'Sering salah langkah, cocok buat belajar.', medium: 'Melihat sekitar 3 langkah ke depan.', hard: 'Berpikir lebih dalam dan jarang salah.' };
+  $('lvlDesc').textContent = desc[cfg.level];
+}
+
+document.addEventListener('click', e => {
+  const opt = e.target.closest('[data-k]');
+  if (opt) {
+    const k = opt.dataset.k;
+    let v = opt.dataset.v;
+    if (v === 'true') v = true; else if (v === 'false') v = false;
+    cfg[k] = v; saveCfg(); syncMenu();
+    return;
+  }
+  const sqb = e.target.closest('#board .sq');
+  if (sqb) { onSquare(+sqb.dataset.sq); return; }
+  const prb = e.target.closest('[data-pr]');
+  if (prb && G && G.promo) {
+    const t = +prb.dataset.pr;
+    if (!t) { G.promo = null; G.sel = -1; render(); return; }
+    const m = G.promo.find(x => x.pr === t);
+    G.promo = null;
+    doMove(m);
+  }
+});
+
+$('btnStart').onclick = newGame;
+$('btnResume').onclick = () => { show('game'); render(); };
+$('btnMenu').onclick = () => { show('menu'); syncMenu(); };
+$('btnUndo').onclick = undo;
+$('btnHint').onclick = hint;
+$('btnFlip').onclick = () => { G.flipped = !G.flipped; render(); };
+$('btnNav').onclick = () => { cfg.hints = !cfg.hints; saveCfg(); render(); };
+$('btnSkin').onclick = () => { cfg.skin = cfg.skin === 'classic' ? 'modern' : 'classic'; saveCfg(); render(); };
+$('endAgain').onclick = newGame;
+$('endMenu').onclick = () => { $('end').hidden = true; show('menu'); syncMenu(); };
+$('endView').onclick = () => { $('end').hidden = true; };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && G && !$('game').hidden) { G.sel = -1; G.promo = null; G.hintMove = null; render(); }
+});
+
+setInterval(() => {
+  if (!G || G.status.over || $('game').hidden) return;
+  G.time[G.s.turn === 1 ? 0 : 1]++;
+  renderStrips();
+}, 1000);
+
+syncMenu();
+show('menu');
+
+</script>
+
+</body></html>
